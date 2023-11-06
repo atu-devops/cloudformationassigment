@@ -2,6 +2,7 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: VPC with public and private subnets and a NAT Gateway
 
 Resources:
+
   FridayHittVPC:
     Type: 'AWS::EC2::VPC'
     Properties:
@@ -10,6 +11,8 @@ Resources:
         - Key: Name
           Value: FridayHittVPC
 
+  # IGW
+  ##########
   FridayHittInternetGateway:
     Type: 'AWS::EC2::InternetGateway'
     Properties:
@@ -23,6 +26,8 @@ Resources:
       VpcId: !Ref FridayHittVPC
       InternetGatewayId: !Ref FridayHittInternetGateway
 
+  # Subnets
+  ##########
   PublicSubnet:
     Type: 'AWS::EC2::Subnet'
     Properties:
@@ -62,20 +67,23 @@ Resources:
         - Key: Name
           Value: DatabaseSubnet          
 
+  
+  # Routing
+  ##########
   NATGatewayEIP:
     Type: 'AWS::EC2::EIP'
     Properties:
       Domain: vpc
 
   NATGateway:
-  Type: 'AWS::EC2::NatGateway'
-  DependsOn: AttachGateway  # Ensure the Internet Gateway is attached before creating the NAT Gateway
-  Properties:
-    AllocationId: !GetAtt NATGatewayEIP.AllocationId
-    SubnetId: !Ref PublicSubnet
-    Tags:
-      - Key: Name
-        Value: FridayHittNATGateway
+    Type: 'AWS::EC2::NatGateway'
+    DependsOn: AttachGateway  # Ensure the Internet Gateway is attached before creating the NAT Gateway
+    Properties:
+      AllocationId: !GetAtt NATGatewayEIP.AllocationId
+      SubnetId: !Ref PublicSubnet
+      Tags:
+        - Key: Name
+          Value: FridayHittNATGateway
         
 
   PublicRouteTable:
@@ -115,7 +123,7 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref NATGateway
 
-    ApplicationSubnetRouteTableAssociation:
+  ApplicationSubnetRouteTableAssociation:
     Type: 'AWS::EC2::SubnetRouteTableAssociation'
     Properties:
       SubnetId: !Ref ApplicationSubnet
@@ -126,6 +134,44 @@ Resources:
     Properties:
       SubnetId: !Ref DatabaseSubnet
       RouteTableId: !Ref PrivateRouteTable
+
+
+  # Load Balancer
+  ################
+  PublicLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: FridayHittPublicLoadBalancer
+      Subnets:
+        - !Ref PublicSubnet 
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroup
+      Scheme: internet-facing
+      Tags:
+        - Key: Name
+          Value: FridayHittPublicLoadBalancer 
+
+
+  # Security Groups 
+  ##################
+
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security Group for Load Balancer
+      VpcId: !Ref FridayHittVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: LoadBalancerSG
 
 
 Outputs:
@@ -143,4 +189,7 @@ Outputs:
     Value: !Ref ApplicationSubnet 
   DatabaseSubnetId:
     Description: The ID of the Private Subnet for Database servers
-    Value: !Ref DatabaseSubnet   
+    Value: !Ref DatabaseSubnet
+  PublicLoadBalancerDNSName:
+    Description: DNS name for the public load balancer
+    Value: !GetAtt PublicLoadBalancer.DNSName     
