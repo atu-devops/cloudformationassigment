@@ -28,7 +28,7 @@ Resources:
 
   # Subnets
   ##########
-  PublicSubnet:
+  PublicSubnet1:
     Type: 'AWS::EC2::Subnet'
     Properties:
       VpcId: !Ref FridayHittVPC
@@ -40,7 +40,21 @@ Resources:
             Ref: 'AWS::Region'
       Tags:
         - Key: Name
-          Value: PublicSubnet
+          Value: PublicSubnet1
+
+  PublicSubnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref FridayHittVPC
+      CidrBlock: 10.0.10.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select
+        - 1
+        - !GetAZs
+          Ref: 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: PublicSubnet2        
 
   ApplicationSubnet:
     Type: 'AWS::EC2::Subnet'
@@ -103,7 +117,7 @@ Resources:
     DependsOn: AttachGateway  # Ensure the Internet Gateway is attached before creating the NAT Gateway
     Properties:
       AllocationId: !GetAtt NATGatewayEIP.AllocationId
-      SubnetId: !Ref PublicSubnet
+      SubnetId: !Ref PublicSubnet1
       Tags:
         - Key: Name
           Value: FridayHittNATGateway
@@ -125,11 +139,17 @@ Resources:
       DestinationCidrBlock: '0.0.0.0/0'
       GatewayId: !Ref FridayHittInternetGateway
 
-  PublicSubnetRouteTableAssociation:
+  PublicSubnet1RouteTableAssociation:
     Type: 'AWS::EC2::SubnetRouteTableAssociation'
     Properties:
-      SubnetId: !Ref PublicSubnet
+      SubnetId: !Ref PublicSubnet1
       RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet2RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable    
 
   PrivateRouteTable:
     Type: 'AWS::EC2::RouteTable'
@@ -172,7 +192,8 @@ Resources:
     Properties:
       Name: FridayHittPublicLoadBalancer
       Subnets:
-        - !Ref PublicSubnet 
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
       SecurityGroups:
         - !Ref LoadBalancerSecurityGroup
       Scheme: internet-facing
@@ -202,7 +223,7 @@ Resources:
     Properties:
       DBInstanceClass: 'db.t3.micro' 
       AllocatedStorage: '20'  
-      DBSubnetGroupName: !GetAtt DatabaseSubnetGroup.DBSubnetGroupName
+      DBSubnetGroupName: !Ref DatabaseSubnetGroup
       VPCSecurityGroups:
         - !Ref DatabaseInstanceSecurityGroup
       DBName: 'FridayHittDatabase' 
@@ -223,7 +244,7 @@ Resources:
       InstanceType: t2.micro
       KeyName: 'aws_atu_key'
       ImageId: 'ami-0694d931cee176e7d'
-      SubnetId: !Ref PublicSubnet
+      SubnetId: !Ref PublicSubnet1
       SecurityGroupIds:
         - !Ref BastionSecurityGroup
       Tags:
@@ -234,7 +255,7 @@ Resources:
   ##################
 
   LoadBalancerSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
+    Type: 'AWS::EC2::SecurityGroup'
     Properties:
       GroupDescription: Security Group for Load Balancer
       VpcId: !Ref FridayHittVPC
@@ -306,9 +327,12 @@ Outputs:
   VPCId:
     Description: The ID of the VPC
     Value: !Ref FridayHittVPC
-  PublicSubnetId:
-    Description: The ID of the public subnet
-    Value: !Ref PublicSubnet
+  PublicSubnet1Id:
+    Description: The ID of the first public subnet
+    Value: !Ref PublicSubnet1
+  PublicSubnet2Id:
+    Description: The ID of the second public subnet
+    Value: !Ref PublicSubnet2  
   InternetGatewayId:
     Description: The ID of the Internet Gateway
     Value: !Ref FridayHittInternetGateway
