@@ -37,7 +37,7 @@ Resources:
         - Key: Name
           Value: PublicSubnet
 
-  PrivateSubnetApp:
+  ApplicationSubnet:
     Type: 'AWS::EC2::Subnet'
     Properties:
       VpcId: !Ref FridayHittVPC
@@ -48,7 +48,19 @@ Resources:
             Ref: 'AWS::Region'
       Tags:
         - Key: Name
-          Value: PrivateSubnetApp
+          Value: ApplicationSubnet
+
+  DatabaseSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref FridayHittVPC
+      CidrBlock: 10.0.3.0/24
+      AvailabilityZone: !Select 
+        - 2
+        - !GetAZs ''
+      Tags:
+        - Key: Name
+          Value: DatabaseSubnet          
 
   NATGatewayEIP:
     Type: 'AWS::EC2::EIP'
@@ -102,9 +114,15 @@ Resources:
       NatGatewayId: !Ref NATGateway
 
   PrivateSubnetRouteTableAssociation:
-    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref PrivateSubnetApp
+      SubnetId: !Ref ApplicationSubnet
+      RouteTableId: !Ref PrivateRouteTable
+
+  PrivateSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref DatabaseSubnet
       RouteTableId: !Ref PrivateRouteTable    
 
 Outputs:
@@ -117,6 +135,9 @@ Outputs:
   InternetGatewayId:
     Description: The ID of the Internet Gateway
     Value: !Ref FridayHittInternetGateway
-  PrivateSubnetAppId:
-    Description: The Private Subnet for App Id
-    Value: !Ref PrivateSubnetApp  
+  ApplicationSubnetId:
+    Description: The ID of Private Subnet for Appilcation servers
+    Value: !Ref ApplicationSubnet 
+  DatabaseSubnetId:
+    Description: The ID of the Private Subnet for Database servers
+    Value: !Ref DatabaseSubnet   
