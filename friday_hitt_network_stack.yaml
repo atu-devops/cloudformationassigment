@@ -99,7 +99,7 @@ Resources:
     DependsOn: AttachGateway
     Properties:
       RouteTableId: !Ref PublicRouteTable
-      DestinationCidrBlock: 0.0.0.0/0
+      DestinationCidrBlock: '0.0.0.0/0'
       GatewayId: !Ref FridayHittInternetGateway
 
   PublicSubnetRouteTableAssociation:
@@ -156,12 +156,12 @@ Resources:
   ApplicationInstance:
     Type: 'AWS::EC2::Instance'
     Properties:
-      ImageId: 'AMI_ID' 
+      ImageId: 'ami-0694d931cee176e7d' 
       InstanceType: 't2.micro'  
       SubnetId: !Ref ApplicationSubnet
       SecurityGroupIds:
         - !Ref ApplicationInstanceSecurityGroup
-      KeyName: aws_atu_key 
+      KeyName: 'aws_atu_key' 
       Tags:
         - Key: Name
           Value: ApplicationInstance
@@ -193,6 +193,21 @@ Resources:
       Tags:
         - Key: Name
           Value: DatabaseSubnetGroup
+
+  # Jump Server
+  ##############
+  BastionHost:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: t2.micro
+      KeyName: 'aws_atu_key'
+      ImageId: 'ami-0694d931cee176e7d'
+      SubnetId: !Ref PublicSubnet
+      SecurityGroupIds:
+        - !Ref BastionSecurityGroup
+      Tags:
+        - Key: Name
+          Value: BastionHost        
         
   # Security Groups 
   ##################
@@ -224,25 +239,47 @@ Resources:
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
-          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup 
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          SourceSecurityGroupId: !Ref BastionSecurityGroup   
       Tags:
         - Key: Name
           Value: ApplicationInstanceSG  
 
 
   DatabaseInstanceSecurityGroup:
-      Type: 'AWS::EC2::SecurityGroup'
-      Properties:
-        GroupDescription: Security group for RDS database instance
-        VpcId: !Ref FridayHittVPC
-        SecurityGroupIngress:
-          - IpProtocol: tcp
-            FromPort: '3306'  # Replace with the port your database will use (3306 is default for MySQL)
-            ToPort: '3306'
-            SourceSecurityGroupId: !Ref ApplicationInstanceSecurityGroup
-        Tags:
-          - Key: Name
-            Value: DatabaseSecurityGroup              
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Security group for RDS database instance
+      VpcId: !Ref FridayHittVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '3306'  # Replace with the port your database will use (3306 is default for MySQL)
+          ToPort: '3306'
+          SourceSecurityGroupId: !Ref ApplicationInstanceSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          SourceSecurityGroupId: !Ref BastionSecurityGroup   
+      Tags:
+        - Key: Name
+          Value: DatabaseSecurityGroup
+
+  BastionSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Allow SSH access from the internet to the bastion
+      VpcId: !Ref FridayHittVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: '146.70.48.3/32' 
+      Tags:
+        - Key: Name
+          Value: BastionSecurityGroup                        
 
 Outputs:
   VPCId:
