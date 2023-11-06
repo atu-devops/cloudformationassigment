@@ -56,7 +56,7 @@ Resources:
           Value: ApplicationSubnet
 
   DatabaseSubnet:
-    Type: AWS::EC2::Subnet
+    Type: 'AWS::EC2::Subnet'
     Properties:
       VpcId: !Ref FridayHittVPC
       CidrBlock: 10.0.3.0/24
@@ -139,7 +139,7 @@ Resources:
   # Load Balancer
   ################
   PublicLoadBalancer:
-    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
     Properties:
       Name: FridayHittPublicLoadBalancer
       Subnets:
@@ -166,7 +166,34 @@ Resources:
         - Key: Name
           Value: ApplicationInstance
 
-       
+  # Database Instance 
+  #######################     
+  DatabaseInstance:
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      DBInstanceClass: 'db.t3.micro' 
+      AllocatedStorage: '20'  
+      DBSubnetGroupName: !GetAtt DatabaseSubnetGroup.DBSubnetGroupName
+      VPCSecurityGroups:
+        - !Ref DatabaseSecurityGroup
+      DBName: 'FridayHittDatabase' 
+      Engine: 'mysql'
+      MasterUsername: 'username'
+      MasterUserPassword: 'password'
+      Tags:
+        - Key: Name
+          Value: DatabaseInstance
+
+  DatabaseSubnetGroup:
+    Type: 'AWS::RDS::DBSubnetGroup'
+    Properties:
+      DBSubnetGroupDescription: 'Subnet group for RDS instances'
+      SubnetIds:
+        - !Ref DatabaseSubnet
+      Tags:
+        - Key: Name
+          Value: DatabaseSubnetGroup
+        
   # Security Groups 
   ##################
 
@@ -200,8 +227,22 @@ Resources:
           SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup 
       Tags:
         - Key: Name
-          Value: ApplicationInstanceSG        
+          Value: ApplicationInstanceSG  
 
+
+  DatabaseInstanceSecurityGroup:
+      Type: 'AWS::EC2::SecurityGroup'
+      Properties:
+        GroupDescription: Security group for RDS database instance
+        VpcId: !Ref FridayHittVPC
+        SecurityGroupIngress:
+          - IpProtocol: tcp
+            FromPort: '3306'  # Replace with the port your database will use (3306 is default for MySQL)
+            ToPort: '3306'
+            SourceSecurityGroupId: !Ref ApplicationInstanceSecurityGroup
+        Tags:
+          - Key: Name
+            Value: DatabaseSecurityGroup              
 
 Outputs:
   VPCId:
@@ -221,4 +262,17 @@ Outputs:
     Value: !Ref DatabaseSubnet
   PublicLoadBalancerDNSName:
     Description: DNS name for the public load balancer
-    Value: !GetAtt PublicLoadBalancer.DNSName     
+    Value: !GetAtt PublicLoadBalancer.DNSName
+  ApplicationInstanceId:
+    Description: The ID of the application instance
+    Value: !Ref ApplicationInstance
+  ApplicationInstanceSecurityGroupId:
+    Description: The ID of the application instance security group
+    Value: !Ref ApplicationInstanceSecurityGroup
+  DatabaseInstanceId:
+    Description: The ID of the Database instance
+    Value: !Ref DatabaseInstance
+  DatabaseInstanceSecuityGroup:
+    Description: The ID of the Database instance security group
+    Value: !Ref DatabaseInstanceSecurityGroup 
+       
