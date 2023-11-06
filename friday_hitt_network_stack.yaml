@@ -151,7 +151,22 @@ Resources:
         - Key: Name
           Value: FridayHittPublicLoadBalancer 
 
+  # Application Instance 
+  #######################
+  ApplicationInstance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: 'AMI_ID' 
+      InstanceType: 't2.micro'  
+      SubnetId: !Ref ApplicationSubnet
+      SecurityGroupIds:
+        - !Ref ApplicationInstanceSecurityGroup
+      KeyName: aws_atu_key 
+      Tags:
+        - Key: Name
+          Value: ApplicationInstance
 
+       
   # Security Groups 
   ##################
 
@@ -172,6 +187,20 @@ Resources:
       Tags:
         - Key: Name
           Value: LoadBalancerSG
+
+  ApplicationInstanceSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Allow traffic from the load balancer to the application instance
+      VpcId: !Ref FridayHittVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup 
+      Tags:
+        - Key: Name
+          Value: ApplicationInstanceSG        
 
 
 Outputs:
