@@ -68,13 +68,15 @@ Resources:
       Domain: vpc
 
   NATGateway:
-    Type: 'AWS::EC2::NatGateway'
-    Properties:
-      AllocationId: !GetAtt NATGatewayEIP.AllocationId
-      SubnetId: !Ref PublicSubnet
-      Tags:
-        - Key: Name
-          Value: FridayHittNATGateway
+  Type: 'AWS::EC2::NatGateway'
+  DependsOn: AttachGateway  # Ensure the Internet Gateway is attached before creating the NAT Gateway
+  Properties:
+    AllocationId: !GetAtt NATGatewayEIP.AllocationId
+    SubnetId: !Ref PublicSubnet
+    Tags:
+      - Key: Name
+        Value: FridayHittNATGateway
+        
 
   PublicRouteTable:
     Type: 'AWS::EC2::RouteTable'
@@ -113,17 +115,18 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref NATGateway
 
-  PrivateSubnetRouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
+    ApplicationSubnetRouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
     Properties:
       SubnetId: !Ref ApplicationSubnet
       RouteTableId: !Ref PrivateRouteTable
 
-  PrivateSubnetRouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
+  DatabaseSubnetRouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
     Properties:
       SubnetId: !Ref DatabaseSubnet
-      RouteTableId: !Ref PrivateRouteTable    
+      RouteTableId: !Ref PrivateRouteTable
+
 
 Outputs:
   VPCId:
