@@ -56,7 +56,7 @@ Resources:
         - Key: Name
           Value: PublicSubnet2        
 
-  ApplicationSubnet:
+  ApplicationSubnet1:
     Type: 'AWS::EC2::Subnet'
     Properties:
       VpcId: !Ref FridayHittVPC
@@ -67,7 +67,20 @@ Resources:
             Ref: 'AWS::Region'
       Tags:
         - Key: Name
-          Value: ApplicationSubnet        
+          Value: ApplicationSubnet1 
+
+  ApplicationSubnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref FridayHittVPC
+      CidrBlock: 10.0.3.0/24
+      AvailabilityZone: !Select
+        - 1
+        - !GetAZs
+            Ref: 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: ApplicationSubnet2                      
 
   DatabaseSubnetA:
     Type: 'AWS::EC2::Subnet'
@@ -166,11 +179,17 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref NATGateway
 
-  ApplicationSubnetRouteTableAssociation:
+  ApplicationSubnet1RouteTableAssociation:
     Type: 'AWS::EC2::SubnetRouteTableAssociation'
     Properties:
-      SubnetId: !Ref ApplicationSubnet
+      SubnetId: !Ref ApplicationSubnet1
       RouteTableId: !Ref PrivateRouteTable
+
+  ApplicationSubnet2RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref ApplicationSubnet2
+      RouteTableId: !Ref PrivateRouteTable    
 
   DatabaseSubnetARouteTableAssociation:
     Type: 'AWS::EC2::SubnetRouteTableAssociation'
@@ -192,8 +211,8 @@ Resources:
     Properties:
       Name: FridayHittPublicLoadBalancer
       Subnets:
-        - !Ref PublicSubnet1
-        - !Ref PublicSubnet2
+        - !Ref ApplicationSubnet1
+        - !Ref ApplicationSubnet2
       SecurityGroups:
         - !Ref LoadBalancerSecurityGroup
       Scheme: internet-facing
@@ -203,18 +222,31 @@ Resources:
 
   # Application Instance 
   #######################
-  ApplicationInstance:
+  ApplicationInstance1:
     Type: 'AWS::EC2::Instance'
     Properties:
       ImageId: 'ami-0694d931cee176e7d' 
       InstanceType: 't2.micro'  
-      SubnetId: !Ref ApplicationSubnet
+      SubnetId: !Ref ApplicationSubnet1
       SecurityGroupIds:
         - !Ref ApplicationInstanceSecurityGroup
       KeyName: 'aws_atu_key' 
       Tags:
         - Key: Name
-          Value: ApplicationInstance
+          Value: ApplicationInstance1
+
+  ApplicationInstance2:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: 'ami-0694d931cee176e7d' 
+      InstanceType: 't2.micro'  
+      SubnetId: !Ref ApplicationSubnet2
+      SecurityGroupIds:
+        - !Ref ApplicationInstanceSecurityGroup
+      KeyName: 'aws_atu_key' 
+      Tags:
+        - Key: Name
+          Value: ApplicationInstance2        
 
   # Database Instance 
   #######################     
@@ -336,9 +368,12 @@ Outputs:
   InternetGatewayId:
     Description: The ID of the Internet Gateway
     Value: !Ref FridayHittInternetGateway
-  ApplicationSubnetId:
-    Description: The ID of Private Subnet for Appilcation servers
-    Value: !Ref ApplicationSubnet 
+  ApplicationSubnet1Id:
+    Description: The ID of the first Private Subnet for Appilcation servers
+    Value: !Ref ApplicationSubnet1
+  ApplicationSubnet2Id:
+    Description: The ID of the second Private Subnet for Appilcation servers
+    Value: !Ref ApplicationSubnet2    
   DatabaseSubnetAId:
     Description: The ID of the Private Subnet A for Database servers
     Value: !Ref DatabaseSubnetA
