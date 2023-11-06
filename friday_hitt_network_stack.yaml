@@ -53,19 +53,42 @@ Resources:
             Ref: 'AWS::Region'
       Tags:
         - Key: Name
-          Value: ApplicationSubnet
+          Value: ApplicationSubnet        
 
-  DatabaseSubnet:
+  DatabaseSubnetA:
     Type: 'AWS::EC2::Subnet'
     Properties:
       VpcId: !Ref FridayHittVPC
-      CidrBlock: 10.0.3.0/24
+      CidrBlock: 10.0.4.0/24
       AvailabilityZone: !Select 
-        - 2
+        - 0
         - !GetAZs ''
       Tags:
         - Key: Name
-          Value: DatabaseSubnet          
+          Value: DatabaseSubnetA
+
+  DatabaseSubnetB:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref FridayHittVPC
+      CidrBlock: 10.0.5.0/24
+      AvailabilityZone: !Select 
+        - 1
+        - !GetAZs ''
+      Tags:
+        - Key: Name
+          Value: DatabaseSubnetB
+
+  DatabaseSubnetGroup:
+    Type: 'AWS::RDS::DBSubnetGroup'
+    Properties:
+      DBSubnetGroupDescription: 'Subnet group for RDS instances'
+      SubnetIds:
+        - !Ref DatabaseSubnetA
+        - !Ref DatabaseSubnetB
+      Tags:
+        - Key: Name
+          Value: DatabaseSubnetGroup
 
   
   # Routing
@@ -129,11 +152,17 @@ Resources:
       SubnetId: !Ref ApplicationSubnet
       RouteTableId: !Ref PrivateRouteTable
 
-  DatabaseSubnetRouteTableAssociation:
+  DatabaseSubnetARouteTableAssociation:
     Type: 'AWS::EC2::SubnetRouteTableAssociation'
     Properties:
-      SubnetId: !Ref DatabaseSubnet
+      SubnetId: !Ref DatabaseSubnetA
       RouteTableId: !Ref PrivateRouteTable
+
+  DatabaseSubnetBRouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref DatabaseSubnetB
+      RouteTableId: !Ref PrivateRouteTable  
 
 
   # Load Balancer
@@ -175,7 +204,7 @@ Resources:
       AllocatedStorage: '20'  
       DBSubnetGroupName: !GetAtt DatabaseSubnetGroup.DBSubnetGroupName
       VPCSecurityGroups:
-        - !Ref DatabaseSecurityGroup
+        - !Ref DatabaseInstanceSecurityGroup
       DBName: 'FridayHittDatabase' 
       Engine: 'mysql'
       MasterUsername: 'username'
@@ -184,15 +213,7 @@ Resources:
         - Key: Name
           Value: DatabaseInstance
 
-  DatabaseSubnetGroup:
-    Type: 'AWS::RDS::DBSubnetGroup'
-    Properties:
-      DBSubnetGroupDescription: 'Subnet group for RDS instances'
-      SubnetIds:
-        - !Ref DatabaseSubnet
-      Tags:
-        - Key: Name
-          Value: DatabaseSubnetGroup
+
 
   # Jump Server
   ##############
@@ -265,7 +286,7 @@ Resources:
           SourceSecurityGroupId: !Ref BastionSecurityGroup   
       Tags:
         - Key: Name
-          Value: DatabaseSecurityGroup
+          Value: DatabaseInstanceSecurityGroup
 
   BastionSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
@@ -294,9 +315,12 @@ Outputs:
   ApplicationSubnetId:
     Description: The ID of Private Subnet for Appilcation servers
     Value: !Ref ApplicationSubnet 
-  DatabaseSubnetId:
-    Description: The ID of the Private Subnet for Database servers
-    Value: !Ref DatabaseSubnet
+  DatabaseSubnetAId:
+    Description: The ID of the Private Subnet A for Database servers
+    Value: !Ref DatabaseSubnetA
+  DatabaseSubnetBId:
+    Description: The ID of the Private Subnet B for Database servers
+    Value: !Ref DatabaseSubnetB  
   PublicLoadBalancerDNSName:
     Description: DNS name for the public load balancer
     Value: !GetAtt PublicLoadBalancer.DNSName
