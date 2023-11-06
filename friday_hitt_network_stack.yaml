@@ -383,9 +383,12 @@ Outputs:
   PublicLoadBalancerDNSName:
     Description: DNS name for the public load balancer
     Value: !GetAtt PublicLoadBalancer.DNSName
-  ApplicationInstanceId:
-    Description: The ID of the application instance
-    Value: !Ref ApplicationInstance
+  ApplicationInstance1Id:
+    Description: The ID of the first application instance
+    Value: !Ref ApplicationInstance1
+  ApplicationInstance2Id:
+    Description: The ID of the second application instance
+    Value: !Ref ApplicationInstance2  
   ApplicationInstanceSecurityGroupId:
     Description: The ID of the application instance security group
     Value: !Ref ApplicationInstanceSecurityGroup
