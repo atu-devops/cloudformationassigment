@@ -211,21 +211,49 @@ Resources:
     Properties:
       Name: FridayHittPublicLoadBalancer
       Subnets:
-        - !Ref ApplicationSubnet1
-        - !Ref ApplicationSubnet2
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
       SecurityGroups:
         - !Ref LoadBalancerSecurityGroup
       Scheme: internet-facing
       Tags:
         - Key: Name
-          Value: FridayHittPublicLoadBalancer 
+          Value: FridayHittPublicLoadBalancer
+
+  ApplicationTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref FridayHittVPC
+      Port: 80
+      Protocol: HTTP
+      TargetType: instance
+      Targets:
+        - Id: !Ref ApplicationInstance1
+        - Id: !Ref ApplicationInstance2
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 3
+      UnhealthyThresholdCount: 3
+
+  ApplicationListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ApplicationTargetGroup
+      LoadBalancerArn: !Ref PublicLoadBalancer
+      Port: 80
+      Protocol: HTTP            
 
   # Application Instance 
   #######################
   ApplicationInstance1:
     Type: 'AWS::EC2::Instance'
     Properties:
-      ImageId: 'ami-0694d931cee176e7d' 
+      ImageId: 'ami-0e309a5f3a6dd97ea' 
       InstanceType: 't2.micro'  
       SubnetId: !Ref ApplicationSubnet1
       SecurityGroupIds:
@@ -234,11 +262,19 @@ Resources:
       Tags:
         - Key: Name
           Value: ApplicationInstance1
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y httpd
+          systemctl start httpd
+          systemctl enable httpd
+          echo "<html><body><h1>Welcome to Apache on EC2 instance 1</h1></body></html>" > /var/www/html/index.html    
 
   ApplicationInstance2:
     Type: 'AWS::EC2::Instance'
     Properties:
-      ImageId: 'ami-0694d931cee176e7d' 
+      ImageId: 'ami-0e309a5f3a6dd97ea' 
       InstanceType: 't2.micro'  
       SubnetId: !Ref ApplicationSubnet2
       SecurityGroupIds:
@@ -246,7 +282,15 @@ Resources:
       KeyName: 'cloudformation_application_instance_key' 
       Tags:
         - Key: Name
-          Value: ApplicationInstance2        
+          Value: ApplicationInstance2
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y httpd
+          systemctl start httpd
+          systemctl enable httpd
+          echo "<html><body><h1>Welcome to Apache on EC2 instance 2</h1></body></html>" > /var/www/html/index.html            
 
   # Database Instance 
   #######################     
@@ -275,7 +319,7 @@ Resources:
     Properties:
       InstanceType: t2.micro
       KeyName: 'aws_atu_key'
-      ImageId: 'ami-0694d931cee176e7d'
+      ImageId: 'ami-0e309a5f3a6dd97ea'
       SubnetId: !Ref PublicSubnet1
       SecurityGroupIds:
         - !Ref BastionSecurityGroup
