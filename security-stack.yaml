@@ -1,0 +1,95 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Security stack with security groups.
+
+Parameters:
+  VPCID:
+    Description: "The ID of the new VPC"
+    Type: String
+
+Resources:
+  LoadBalancerSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Security Group for Load Balancer
+      VpcId: !Ref VPCID
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: LoadBalancerSG
+
+  ApplicationInstanceSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Allow traffic from the load balancer to the application instance
+      VpcId: !Ref VPCID
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          SourceSecurityGroupId: !Ref BastionSecurityGroup   
+      Tags:
+        - Key: Name
+          Value: ApplicationInstanceSG  
+
+
+  DatabaseInstanceSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Security group for RDS database instance
+      VpcId: !Ref VPCID
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '3306'  # Replace with the port your database will use (3306 is default for MySQL)
+          ToPort: '3306'
+          SourceSecurityGroupId: !Ref ApplicationInstanceSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          SourceSecurityGroupId: !Ref BastionSecurityGroup   
+      Tags:
+        - Key: Name
+          Value: DatabaseInstanceSecurityGroup
+
+  BastionSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Allow SSH access from the internet to the bastion
+      VpcId: !Ref VPCID
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: '146.70.48.3/32' #my local ip
+      Tags:
+        - Key: Name
+          Value: BastionSecurityGroup            
+  
+Outputs:
+
+  LoadBalancerSecurityGroupID:
+    Description: "Security Group ID for the Load Balancer"
+    Value: !Ref LoadBalancerSecurityGroup
+
+  ApplicationInstanceSecurityGroupID:
+    Description: "Security Group ID for the Application Instances"
+    Value: !Ref ApplicationInstanceSecurityGroup
+
+  DatabaseInstanceSecurityGroupID:
+    Description: "Security Group ID for the Database Instances"
+    Value: !Ref DatabaseInstanceSecurityGroup
+
+  BastionSecurityGroupID:
+    Description: "Security Group ID for the Bastion Host"
+    Value: !Ref BastionSecurityGroup

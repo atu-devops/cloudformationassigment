@@ -1,0 +1,25 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Bastion host for secure administrative access.
+
+Parameters:
+  BastionSecurityGroupID:
+    Description: Security Group ID for the BastionHost Instances
+    Type: String
+
+  PublicSubnet1ID:
+    Description: "The ID of the first public subnet"
+    Type: String
+
+Resources:
+  BastionHost:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: t2.micro
+      KeyName: 'cloudformation_application_instance_key'
+      ImageId: 'ami-0e309a5f3a6dd97ea'
+      SubnetId: !Ref PublicSubnet1ID
+      SecurityGroupIds:
+        - !Ref BastionSecurityGroupID
+      Tags:
+        - Key: Name
+          Value: BastionHost        

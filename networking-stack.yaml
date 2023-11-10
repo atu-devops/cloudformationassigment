@@ -1,0 +1,254 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Networking stack with VPC, subnets, and related resources.
+
+Resources:
+  FridayHittVPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      Tags:
+        - Key: Name
+          Value: FridayHittVPC
+  
+  # Public Subnets
+  PublicSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref FridayHittVPC
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs
+            Ref: 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: PublicSubnet1
+
+  PublicSubnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref FridayHittVPC
+      CidrBlock: 10.0.10.0/24
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select
+        - 1
+        - !GetAZs
+          Ref: 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: PublicSubnet2        
+
+  # Application Subnets
+  ApplicationSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref FridayHittVPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: !Select
+        - 0
+        - !GetAZs
+            Ref: 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: ApplicationSubnet1 
+
+  ApplicationSubnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref FridayHittVPC
+      CidrBlock: 10.0.3.0/24
+      AvailabilityZone: !Select
+        - 1
+        - !GetAZs
+            Ref: 'AWS::Region'
+      Tags:
+        - Key: Name
+          Value: ApplicationSubnet2                      
+
+  # Database Subnets
+  DatabaseSubnetA:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref FridayHittVPC
+      CidrBlock: 10.0.4.0/24
+      AvailabilityZone: !Select 
+        - 0
+        - !GetAZs ''
+      Tags:
+        - Key: Name
+          Value: DatabaseSubnetA
+
+  DatabaseSubnetB:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref FridayHittVPC
+      CidrBlock: 10.0.5.0/24
+      AvailabilityZone: !Select 
+        - 1
+        - !GetAZs ''
+      Tags:
+        - Key: Name
+          Value: DatabaseSubnetB
+
+  DatabaseSubnetGroup:
+    Type: 'AWS::RDS::DBSubnetGroup'
+    Properties:
+      DBSubnetGroupDescription: 'Subnet group for RDS instances'
+      SubnetIds:
+        - !Ref DatabaseSubnetA
+        - !Ref DatabaseSubnetB
+      Tags:
+        - Key: Name
+          Value: DatabaseSubnetGroup
+
+  # IGW
+  ##########
+  FridayHittInternetGateway:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: FridayHittInternetGateway
+
+  AttachGateway:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      VpcId: !Ref FridayHittVPC
+      InternetGatewayId: !Ref FridayHittInternetGateway
+
+  # Routing
+  ##########
+  NATGatewayEIP:
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Domain: vpc
+
+  NATGateway:
+    Type: 'AWS::EC2::NatGateway'
+    DependsOn: AttachGateway  # Ensure the Internet Gateway is attached before creating the NAT Gateway
+    Properties:
+      AllocationId: !GetAtt NATGatewayEIP.AllocationId
+      SubnetId: !Ref PublicSubnet1
+      Tags:
+        - Key: Name
+          Value: FridayHittNATGateway
+        
+
+  PublicRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref FridayHittVPC
+      Tags:
+        - Key: Name
+          Value: PublicRouteTable
+
+  DefaultPublicRoute:
+    Type: 'AWS::EC2::Route'
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref FridayHittInternetGateway
+
+  PublicSubnet1RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet2RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable    
+
+  PrivateRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref FridayHittVPC
+      Tags:
+        - Key: Name
+          Value: PrivateRouteTable
+
+  DefaultPrivateRoute:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NATGateway
+
+  ApplicationSubnet1RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref ApplicationSubnet1
+      RouteTableId: !Ref PrivateRouteTable
+
+  ApplicationSubnet2RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref ApplicationSubnet2
+      RouteTableId: !Ref PrivateRouteTable    
+
+  DatabaseSubnetARouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref DatabaseSubnetA
+      RouteTableId: !Ref PrivateRouteTable
+
+  DatabaseSubnetBRouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref DatabaseSubnetB
+      RouteTableId: !Ref PrivateRouteTable     
+
+Outputs:
+
+  VPCID:
+    Description: "The ID of the new VPC"
+    Value: !Ref FridayHittVPC
+
+  PublicSubnet1ID:
+    Description: "The ID of the first public subnet"
+    Value: !Ref PublicSubnet1
+
+  PublicSubnet2ID:
+    Description: "The ID of the second public subnet"
+    Value: !Ref PublicSubnet2
+
+  ApplicationSubnet1ID:
+    Description: "The ID of the first application subnet"
+    Value: !Ref ApplicationSubnet1
+
+  ApplicationSubnet2ID:
+    Description: "The ID of the second application subnet"
+    Value: !Ref ApplicationSubnet2
+
+  DatabaseSubnetAID:
+    Description: "The ID of the first database subnet"
+    Value: !Ref DatabaseSubnetA
+
+  DatabaseSubnetBID:
+    Description: "The ID of the second database subnet"
+    Value: !Ref DatabaseSubnetB
+
+  DatabaseSubnetGroupID:
+    Description: "The ID of the RDS database subnet group"
+    Value: !Ref DatabaseSubnetGroup
+
+  InternetGatewayID:
+    Description: "The ID of the Internet Gateway"
+    Value: !Ref FridayHittInternetGateway
+
+  NATGatewayID:
+    Description: "The ID of the NAT Gateway"
+    Value: !Ref NATGateway
+
+  PublicRouteTableID:
+    Description: "The ID of the public route table"
+    Value: !Ref PublicRouteTable
+
+  PrivateRouteTableID:
+    Description: "The ID of the private route table"
+    Value: !Ref PrivateRouteTable
+

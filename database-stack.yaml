@@ -1,0 +1,29 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Database stack with an RDS instance.
+
+Parameters:
+
+  DatabaseSubnetGroupID:
+    Description: "The ID of the RDS database subnet group"
+    Type: String
+
+  DatabaseInstanceSecurityGroupID:
+    Description: "Security Group ID for the Database Instances"
+    Type: String 
+
+Resources:
+  DatabaseInstance:
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      DBInstanceClass: 'db.t3.micro' 
+      AllocatedStorage: '20'  
+      DBSubnetGroupName: !Ref DatabaseSubnetGroupID
+      VPCSecurityGroups:
+        - !Ref DatabaseInstanceSecurityGroupID
+      DBName: 'FridayHittDatabase' 
+      Engine: 'mysql'
+      MasterUsername: 'username'
+      MasterUserPassword: 'password'
+      Tags:
+        - Key: Name
+          Value: DatabaseInstance

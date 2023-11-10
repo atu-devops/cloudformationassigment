@@ -1,0 +1,123 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Application stack with EC2 instances and Load Balancer.
+
+Parameters:
+  VPCID:
+    Description: "The ID of the new VPC"
+    Type: String
+
+  AppInstanceSecurityGroupID:
+    Description: Security Group ID for the Application Instances
+    Type: String
+
+  LoadBalancerSecurityGroupID:
+    Description: "Security Group ID for the Load Balancer"
+    Type: String
+
+  PublicSubnet1ID:
+    Description: "The ID of the first public subnet"
+    Type: String
+
+  PublicSubnet2ID:
+    Description: "The ID of the second public subnet"
+    Type: String
+
+  ApplicationSubnet1ID:
+    Description: "The ID of the first application subnet"
+    Type: String
+
+  ApplicationSubnet2ID:
+    Description: "The ID of the second application subnet"
+    Type: String
+
+
+
+Resources:
+  # Load Balancer
+  ################
+  PublicLoadBalancer:
+    Type: 'AWS::ElasticLoadBalancingV2::LoadBalancer'
+    Properties:
+      Name: FridayHittPublicLoadBalancer
+      Subnets:
+        - !Ref PublicSubnet1ID
+        - !Ref PublicSubnet2ID
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroupID
+      Scheme: internet-facing
+      Tags:
+        - Key: Name
+          Value: FridayHittPublicLoadBalancer
+
+  ApplicationTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      VpcId: !Ref VPCID
+      Port: 80
+      Protocol: HTTP
+      TargetType: instance
+      Targets:
+        - Id: !Ref ApplicationInstance1
+        - Id: !Ref ApplicationInstance2
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: /
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 3
+      UnhealthyThresholdCount: 3
+
+  ApplicationListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref ApplicationTargetGroup
+      LoadBalancerArn: !Ref PublicLoadBalancer
+      Port: 80
+      Protocol: HTTP            
+
+  # Application Instance 
+  #######################
+  ApplicationInstance1:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: 'ami-0e309a5f3a6dd97ea' 
+      InstanceType: 't2.micro'  
+      SubnetId: !Ref ApplicationSubnet1ID
+      SecurityGroupIds:
+        - !Ref AppInstanceSecurityGroupID
+      KeyName: 'cloudformation_application_instance_key' 
+      Tags:
+        - Key: Name
+          Value: ApplicationInstance1
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y httpd
+          systemctl start httpd
+          systemctl enable httpd
+          echo "<html><body><h1>Welcome to Apache on EC2 instance 1</h1></body></html>" > /var/www/html/index.html    
+
+  ApplicationInstance2:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      ImageId: 'ami-0e309a5f3a6dd97ea' 
+      InstanceType: 't2.micro'  
+      SubnetId: !Ref ApplicationSubnet2ID
+      SecurityGroupIds:
+        - !Ref AppInstanceSecurityGroupID
+      KeyName: 'cloudformation_application_instance_key' 
+      Tags:
+        - Key: Name
+          Value: ApplicationInstance2
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y httpd
+          systemctl start httpd
+          systemctl enable httpd
+          echo "<html><body><h1>Welcome to Apache on EC2 instance 2</h1></body></html>" > /var/www/html/index.html            
+

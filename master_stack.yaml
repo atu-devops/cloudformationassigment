@@ -1,0 +1,45 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Master stack that includes networking, security, application, database, and bastion stacks.
+
+Resources:
+
+  NetworkingStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: 'https://cf-templates-1uzswu4ckkeh2-eu-west-1.s3.eu-west-1.amazonaws.com/networking-stack.yaml'
+
+  SecurityStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: 'https://cf-templates-1uzswu4ckkeh2-eu-west-1.s3.eu-west-1.amazonaws.com/security-stack.yaml'
+      Parameters:
+        VPCID: !GetAtt NetworkingStack.Outputs.VPCID
+
+  ApplicationStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: 'https://cf-templates-1uzswu4ckkeh2-eu-west-1.s3.eu-west-1.amazonaws.com/application-stack.yaml'
+      Parameters:
+        AppInstanceSecurityGroupID: !GetAtt SecurityStack.Outputs.ApplicationInstanceSecurityGroupID
+        LoadBalancerSecurityGroupID: !GetAtt SecurityStack.Outputs.LoadBalancerSecurityGroupID
+        PublicSubnet1ID: !GetAtt NetworkingStack.Outputs.PublicSubnet1ID
+        PublicSubnet2ID: !GetAtt NetworkingStack.Outputs.PublicSubnet2ID
+        ApplicationSubnet1ID: !GetAtt NetworkingStack.Outputs.ApplicationSubnet1ID
+        ApplicationSubnet2ID: !GetAtt NetworkingStack.Outputs.ApplicationSubnet2ID
+        VPCID: !GetAtt NetworkingStack.Outputs.VPCID
+
+  DatabaseStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: 'https://cf-templates-1uzswu4ckkeh2-eu-west-1.s3.eu-west-1.amazonaws.com/database-stack.yaml'
+      Parameters:
+        DatabaseSubnetGroupID: !GetAtt NetworkingStack.Outputs.DatabaseSubnetGroupID
+        DatabaseInstanceSecurityGroupID: !GetAtt SecurityStack.Outputs.DatabaseInstanceSecurityGroupID
+    
+  BastionStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      TemplateURL: 'https://cf-templates-1uzswu4ckkeh2-eu-west-1.s3.eu-west-1.amazonaws.com/bastion-stack.yaml'
+      Parameters:
+        PublicSubnet1ID: !GetAtt NetworkingStack.Outputs.PublicSubnet1ID
+        BastionSecurityGroupID: !GetAtt SecurityStack.Outputs.BastionSecurityGroupID
