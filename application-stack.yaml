@@ -56,9 +56,6 @@ Resources:
       Port: 80
       Protocol: HTTP
       TargetType: instance
-      Targets:
-        - Id: !Ref ApplicationInstance1
-        - Id: !Ref ApplicationInstance2
       HealthCheckEnabled: true
       HealthCheckIntervalSeconds: 30
       HealthCheckPath: /
@@ -75,22 +72,18 @@ Resources:
           TargetGroupArn: !Ref ApplicationTargetGroup
       LoadBalancerArn: !Ref PublicLoadBalancer
       Port: 80
-      Protocol: HTTP            
+      Protocol: HTTP
 
-  # Application Instance 
+  # Launch Configuration
   #######################
-  ApplicationInstance1:
-    Type: 'AWS::EC2::Instance'
+  AppLaunchConfiguration:
+    Type: 'AWS::AutoScaling::LaunchConfiguration'
     Properties:
-      ImageId: 'ami-0e309a5f3a6dd97ea' 
-      InstanceType: 't2.micro'  
-      SubnetId: !Ref ApplicationSubnet1ID
-      SecurityGroupIds:
+      ImageId: 'ami-0e309a5f3a6dd97ea'
+      InstanceType: 't2.micro'
+      SecurityGroups:
         - !Ref AppInstanceSecurityGroupID
-      KeyName: 'cloudformation_application_instance_key' 
-      Tags:
-        - Key: Name
-          Value: ApplicationInstance1
+      KeyName: 'cloudformation_application_instance_key'
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
@@ -98,26 +91,38 @@ Resources:
           yum install -y httpd
           systemctl start httpd
           systemctl enable httpd
-          echo "<html><body><h1>Welcome to Apache on EC2 instance 1</h1></body></html>" > /var/www/html/index.html    
 
-  ApplicationInstance2:
-    Type: 'AWS::EC2::Instance'
+          # Create an HTML file with the instance ID
+          echo "<html><body><h1>Welcome to Apache on EC2</h1></body></html>" > /var/www/html/index.html
+
+ # Auto Scaling Group
+  ####################
+  AppAutoScalingGroup:
+    Type: 'AWS::AutoScaling::AutoScalingGroup'
     Properties:
-      ImageId: 'ami-0e309a5f3a6dd97ea' 
-      InstanceType: 't2.micro'  
-      SubnetId: !Ref ApplicationSubnet2ID
-      SecurityGroupIds:
-        - !Ref AppInstanceSecurityGroupID
-      KeyName: 'cloudformation_application_instance_key' 
+      VPCZoneIdentifier:
+        - !Ref ApplicationSubnet1ID
+        - !Ref ApplicationSubnet2ID
+      LaunchConfigurationName: !Ref AppLaunchConfiguration
+      MinSize: '2'
+      MaxSize: '3'
+      TargetGroupARNs:
+        - !Ref ApplicationTargetGroup
+      HealthCheckGracePeriod: 300
+      HealthCheckType: ELB
       Tags:
         - Key: Name
-          Value: ApplicationInstance2
-      UserData:
-        Fn::Base64: !Sub |
-          #!/bin/bash
-          yum update -y
-          yum install -y httpd
-          systemctl start httpd
-          systemctl enable httpd
-          echo "<html><body><h1>Welcome to Apache on EC2 instance 2</h1></body></html>" > /var/www/html/index.html            
+          Value: ApplicationInstance
+          PropagateAtLaunch: true
 
+    # Scaling Policy
+  #################
+  AppScalingPolicy:
+    Type: 'AWS::AutoScaling::ScalingPolicy'
+    Properties:
+      AutoScalingGroupName: !Ref AppAutoScalingGroup
+      PolicyType: TargetTrackingScaling
+      TargetTrackingConfiguration:
+        TargetValue: 50.0
+        PredefinedMetricSpecification:
+          PredefinedMetricType: ASGAverageCPUUtilization
